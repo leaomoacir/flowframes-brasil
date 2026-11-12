@@ -1,3 +1,8 @@
+Flow Frames Brasil 1.0.2
+
+- README reformulado: instalação, uso e soluções de problemas no formato Problema -> Solução.
+- Sem mudanças no funcionamento do programa.
+
 Flow Frames Brasil 1.0.1
 
 Processamento em CPU e GPU
