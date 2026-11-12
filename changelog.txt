@@ -1,0 +1,10 @@
+Flow Frames Brasil 1.0.0
+
+Primeira versão do Flow Frames Brasil, baseada no Flowframes 1.42.0 (N00MKRAD).
+
+Novidades
+- Interface e mensagens totalmente em português do Brasil.
+- Instalador para Windows (sem precisar de administrador).
+- Atualização automática: o programa avisa quando há versão nova e atualiza com um clique.
+- Correção: erro "Value must be a finite float" ao importar alguns vídeos (FPS não detectado).
+- Detecção de FPS mais robusta (vídeos com FPS "1k", duração desconhecida ou r_frame_rate 0/0).
