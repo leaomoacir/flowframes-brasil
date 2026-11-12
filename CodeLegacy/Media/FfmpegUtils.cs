@@ -277,14 +277,14 @@ namespace Flowframes.Media
 
             if (enc == Encoder.X264)
             {
-                string preset = Config.Get(Config.Key.ffEncPreset).Lower().Remove(" "); // TODO: Replace this ugly stuff with enums
+                string preset = GetEncPreset(); // TODO: Replace this ugly stuff with enums
                 int crf = GetCrf(settings);
                 args.Add($"-crf {crf} -preset {preset}");
             }
 
             if (enc == Encoder.X265)
             {
-                string preset = Config.Get(Config.Key.ffEncPreset).Lower().Remove(" "); // TODO: Replace this ugly stuff with enums
+                string preset = GetEncPreset(); // TODO: Replace this ugly stuff with enums
                 int crf = GetCrf(settings);
                 args.Add($"{(crf > 0 ? $"-crf {crf}" : "-x265-params lossless=1")} -preset {preset}");
             }
@@ -427,9 +427,29 @@ namespace Flowframes.Media
             return $"{arg}{keyInt}";
         }
 
+        /// <summary>Retorna um preset valido do ffmpeg (aceita rotulos em portugues; vazio/invalido vira "fast").</summary>
+        public static string GetEncPreset()
+        {
+            string v = (Config.Get(Config.Key.ffEncPreset) ?? "").Trim().ToLowerInvariant().Replace(" ", "");
+            v = v.Normalize(System.Text.NormalizationForm.FormD);
+            v = new string(v.Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark).ToArray());
+
+            switch (v)
+            {
+                case "muitorapido": case "veryfast": return "veryfast";
+                case "maisrapido": case "faster": return "faster";
+                case "rapido": case "fast": return "fast";
+                case "medio": case "medium": return "medium";
+                case "lento": case "slow": return "slow";
+                case "maislento": case "slower": return "slower";
+                case "muitolento": case "veryslow": return "veryslow";
+                default: return "fast";
+            }
+        }
+
         static string GetVp9Speed()
         {
-            string preset = Config.Get(Config.Key.ffEncPreset).Lower().Remove(" ");
+            string preset = GetEncPreset();
             string arg = "";
 
             if (preset == "veryslow") arg = "0";
@@ -445,7 +465,7 @@ namespace Flowframes.Media
 
         static string GetSvtAv1Speed()
         {
-            string preset = Config.Get(Config.Key.ffEncPreset).Lower().Remove(" ");
+            string preset = GetEncPreset();
             string arg = "8";
 
             if (preset == "veryslow") arg = "3";

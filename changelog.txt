@@ -1,3 +1,9 @@
+Flow Frames Brasil 1.0.3
+
+Correcao do erro "Unable to choose an output format for 'yuv420p'"
+- O preset de codificacao (Rapido, Medio, etc.) era enviado ao ffmpeg ja traduzido ou vazio, quebrando o comando e cancelando a interpolacao as vezes logo no inicio.
+- Agora o preset e convertido para o valor correto do ffmpeg; se estiver vazio ou invalido, usa "fast".
+
 Flow Frames Brasil 1.0.2
 
 - README reformulado: instalação, uso e soluções de problemas no formato Problema -> Solução.
