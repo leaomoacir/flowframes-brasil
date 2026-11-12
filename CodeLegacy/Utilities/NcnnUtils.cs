@@ -35,7 +35,7 @@ namespace Flowframes.Utilities
 
         public static string GetNcnnTilesize(int tilesize)
         {
-            int gpusAmount = Config.Get(Config.Key.ncnnGpus).Split(',').Length;
+            int gpusAmount = ProcessingDevice.EffectiveNcnnIds().Split(',').Length;
             string tilesizeStr = $"{tilesize}";
 
             for (int i = 1; i < gpusAmount; i++)
@@ -46,7 +46,7 @@ namespace Flowframes.Utilities
 
         public static string GetNcnnThreads(AiInfo ai)
         {
-            List<int> enabledGpuIds = Config.Get(Config.Key.ncnnGpus).Split(',').Select(s => s.GetInt()).ToList(); // Get GPU IDs
+            List<int> enabledGpuIds = ProcessingDevice.EffectiveNcnnIds().Split(',').Select(s => s.GetInt()).ToList(); // Get GPU IDs
             List<int> gpuThreadCounts = enabledGpuIds.Select(g => GetRifeNcnnGpuThreads(new Size(), g, ai)).ToList(); // Get max thread count for each GPU
             string progThreadsStr = string.Join(",", gpuThreadCounts);
             return $"{(Interpolate.currentlyUsingAutoEnc ? 2 : 4)}:{progThreadsStr}:4"; // Read threads: 1 for singlethreaded, 2 for autoenc, 4 if order is irrelevant

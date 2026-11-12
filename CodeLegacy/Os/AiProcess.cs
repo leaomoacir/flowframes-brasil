@@ -25,7 +25,7 @@ namespace Flowframes.Os
 
         public static int lastStartupTimeMs = 1000;
         private static string lastInPath;
-        private static string NcnnGpuIds => Config.Get(Config.Key.ncnnGpus).Trim();
+        private static string NcnnGpuIds => ProcessingDevice.EffectiveNcnnIds();
 
         public static void Kill()
         {
@@ -128,13 +128,13 @@ namespace Flowframes.Os
 
                 if (logName.IsEmpty())
                 {
-                    Interpolate.Cancel($"A interpolação falhou - {amount} quadros interpolados foram criados e nenhum log foi gravado.");
+                    Interpolate.Cancel($"A interpolação falhou - {amount} quadros interpolados foram criados e nenhum log foi gravado." + ErrorFooter(Interpolate.currentSettings.ai, ""));
                     return;
                 }
 
                 string[] logLines = File.ReadAllLines(Path.Combine(Paths.GetLogPath(), logName + ".txt"));
                 string log = string.Join("\n", logLines.Reverse().Take(10).Reverse().Select(x => x.Split("]: ").Last()).ToList());
-                Interpolate.Cancel($"A interpolação falhou - {amount} quadros interpolados foram criados.\n\n\nÚltimas 10 linhas do log:\n{log}\n\nConsulte o log '{logName}' para mais detalhes.");
+                Interpolate.Cancel($"A interpolação falhou - {amount} quadros interpolados foram criados.\n\n\nÚltimas 10 linhas do log:\n{log}\n\nConsulte o log '{logName}' para mais detalhes." + ErrorFooter(Interpolate.currentSettings.ai, string.Join("\n", logLines.Reverse().Take(80))));
                 return;
             }
 
@@ -218,6 +218,7 @@ namespace Flowframes.Os
             rifePy.StartInfo.Arguments = $"/C cd /D {Path.Combine(Paths.GetPkgPath(), Implementations.rifeCuda.PkgDir).Wrap()} & " +
                 $"set CUDA_VISIBLE_DEVICES={Config.Get(Config.Key.torchGpus)} & {Python.GetPyCmd()} {script} {args}";
             Logger.Log($"Executando RIFE (CUDA){(InterpolateUtils.UseUhd() ? " (modo UHD)" : "")}...", false);
+            Logger.Log("Dispositivo: " + ProcessingDevice.DescribeCuda());
             Logger.Log("cmd.exe " + rifePy.StartInfo.Arguments, true);
 
             rifePy.OutputDataReceived += (sender, outLine) => { LogOutput(outLine.Data, Implementations.rifeCuda); };
@@ -270,6 +271,7 @@ namespace Flowframes.Os
             flavrPy.StartInfo.Arguments = $"/C cd /D {Path.Combine(Paths.GetPkgPath(), Implementations.flavrCuda.PkgDir).Wrap()} & " +
                 $"set CUDA_VISIBLE_DEVICES={Config.Get(Config.Key.torchGpus)} & {Python.GetPyCmd()} {script} {args}";
             Logger.Log($"Executando FLAVR (CUDA)...", false);
+            Logger.Log("Dispositivo: " + ProcessingDevice.DescribeCuda());
             Logger.Log("cmd.exe " + flavrPy.StartInfo.Arguments, true);
 
             flavrPy.OutputDataReceived += (sender, outLine) => { LogOutput(outLine.Data, Implementations.flavrCuda); };
@@ -289,6 +291,7 @@ namespace Flowframes.Os
             try
             {
                 Logger.Log($"Executando RIFE (NCNN){(InterpolateUtils.UseUhd() ? " (modo UHD)" : "")}...", false);
+                Logger.Log("Dispositivo: " + ProcessingDevice.DescribeNcnn());
 
                 await RunRifeNcnnProcess(framesPath, factor, outPath, mdl);
                 await NcnnUtils.DeleteNcnnDupes(outPath, factor);
@@ -339,6 +342,7 @@ namespace Flowframes.Os
             try
             {
                 Logger.Log($"Executando RIFE (NCNN-VS){(InterpolateUtils.UseUhd(Interpolate.currentSettings.OutputResolution) ? " (modo UHD)" : "")}...", false);
+                Logger.Log("Dispositivo: " + ProcessingDevice.DescribeNcnn());
                 await RunRifeNcnnVsProcess(framesPath, factor, outPath, mdl, Interpolate.currentSettings.OutputResolution, rt);
             }
             catch (Exception e)
@@ -446,6 +450,7 @@ namespace Flowframes.Os
 
             dain.StartInfo.Arguments = $"/C cd /D {dainDir.Wrap()} & dain-ncnn-vulkan.exe {args}";
             Logger.Log("Executando DAIN...", false);
+                Logger.Log("Dispositivo: " + ProcessingDevice.DescribeNcnn());
             Logger.Log("cmd.exe " + dain.StartInfo.Arguments, true);
 
             dain.OutputDataReceived += (sender, outLine) => { LogOutput("[O] " + outLine.Data, Implementations.dainNcnn); };
@@ -503,6 +508,7 @@ namespace Flowframes.Os
             xvfiPy.StartInfo.Arguments = $"/C cd /D {pkgPath.Wrap()} & " +
                 $"set CUDA_VISIBLE_DEVICES={Config.Get(Config.Key.torchGpus)} & {Python.GetPyCmd()} {script} {args}";
             Logger.Log($"Executando XVFI (CUDA)...", false);
+            Logger.Log("Dispositivo: " + ProcessingDevice.DescribeCuda());
             Logger.Log("cmd.exe " + xvfiPy.StartInfo.Arguments, true);
 
             xvfiPy.OutputDataReceived += (sender, outLine) => { LogOutput(outLine.Data, Implementations.xvfiCuda); };
@@ -523,6 +529,7 @@ namespace Flowframes.Os
             try
             {
                 Logger.Log($"Executando IFRNet (NCNN){(InterpolateUtils.UseUhd() ? " (modo UHD)" : "")}...", false);
+                Logger.Log("Dispositivo: " + ProcessingDevice.DescribeNcnn());
 
                 await RunIfrnetNcnnProcess(framesPath, factor, outPath, mdl);
                 await NcnnUtils.DeleteNcnnDupes(outPath, factor);
@@ -592,13 +599,29 @@ namespace Flowframes.Os
 
             // Unicode error
             if (line.Contains("UnicodeEncodeError"))
-                return $"It looks like your path contains invalid characters - remove them and try again!";
+                return $"O caminho do arquivo parece ter caracteres inválidos - remova-os e tente de novo!";
 
             // Generic errors
             if (line.Contains("RuntimeError") || line.Contains("AttributeError") || line.Contains("OSError"))
                 return $"A python error occured during interpolation!";
 
             return "";
+        }
+
+        /// <summary> Rodape das mensagens de erro: dispositivo usado e causa provavel (se reconhecida). </summary>
+        private static string ErrorFooter(AiInfo ai, string extraText)
+        {
+            try
+            {
+                string device = (ai != null && ai.Backend == AiInfo.AiBackend.Ncnn) ? ProcessingDevice.DescribeNcnn() : ProcessingDevice.DescribeCuda();
+                string text = (extraText ?? "") + "\n" + GetLastLogLines(logName);
+                string explain = ProcessingDevice.ExplainError(text);
+                return $"\n\n--------------------\nDispositivo de processamento: {device}" + (explain.IsEmpty() ? "" : "\n\n" + explain);
+            }
+            catch
+            {
+                return "";
+            }
         }
 
         private static void LogOutput(string line, AiInfo ai, bool err = false)
@@ -608,7 +631,7 @@ namespace Flowframes.Os
 
             logName = ai.LogFilename;
             Logger.Log(line, true, false, ai.LogFilename, toConsole: Cli.Verbose);
-            void ShowErrorBox(string msg) => UiUtils.ShowMessageBox(msg, UiUtils.MessageType.Error, monospace: true);
+            void ShowErrorBox(string msg) => UiUtils.ShowMessageBox(msg + ErrorFooter(ai, line), UiUtils.MessageType.Error, monospace: true);
             string lineLow = line.Lower();
 
             if (ai.Backend == AiInfo.AiBackend.Pytorch) // Pytorch specific
@@ -619,32 +642,32 @@ namespace Flowframes.Os
                 if (!hasShownError && err && line.Contains("ModuleNotFoundError"))
                 {
                     hasShownError = true;
-                    ShowErrorBox($"A python module is missing.\nCheck {ai.LogFilename} for details.\n\n{line}");
+                    ShowErrorBox($"Falta um módulo do Python.\nVeja os detalhes em {ai.LogFilename}.\n\n{line}");
                 }
 
                 if (!hasShownError && lineLow.Contains("no longer supports this gpu"))
                 {
                     hasShownError = true;
-                    ShowErrorBox($"Your GPU seems to be outdated and is not supported!\n\n{line}");
+                    ShowErrorBox($"Sua GPU parece ser antiga e não é suportada por esta versão do PyTorch!\n\n{line}");
                 }
 
                 if (!hasShownError && lineLow.Contains("error(s) in loading state_dict"))
                 {
                     hasShownError = true;
-                    string msg = (Interpolate.currentSettings.ai.NameInternal == Implementations.flavrCuda.NameInternal) ? "\n\nFor FLAVR, you need to select the correct model for each scale!" : "";
-                    ShowErrorBox($"Error loading the AI model!\n\n{line}{msg}");
+                    string msg = (Interpolate.currentSettings.ai.NameInternal == Implementations.flavrCuda.NameInternal) ? "\n\nNo FLAVR, é preciso escolher o modelo correto para cada escala!" : "";
+                    ShowErrorBox($"Erro ao carregar o modelo de IA!\n\n{line}{msg}");
                 }
 
                 if (!hasShownError && line.Contains("UnicodeEncodeError"))
                 {
                     hasShownError = true;
-                    ShowErrorBox($"It looks like your path contains invalid characters - remove them and try again!\n\n{line}");
+                    ShowErrorBox($"O caminho do arquivo parece ter caracteres inválidos - remova-os e tente de novo!\n\n{line}");
                 }
 
                 if (!hasShownError && err && (line.Contains("RuntimeError") || line.Contains("ImportError") || line.Contains("OSError")))
                 {
                     hasShownError = true;
-                    ShowErrorBox($"A python error occured during interpolation!\nCheck the log for details:\n\n{GetLastLogLines(logName)}");
+                    ShowErrorBox($"Ocorreu um erro do Python durante a interpolação!\nVeja o log para detalhes:\n\n{GetLastLogLines(logName)}");
                 }
             }
 
@@ -653,27 +676,27 @@ namespace Flowframes.Os
                 if (!hasShownError && err && line.Contains("vkCreateInstance failed"))
                 {
                     hasShownError = true;
-                    ShowErrorBox($"Vulkan failed to start up!\n\n{line}\n\nThis most likely means your GPU is not compatible.");
+                    ShowErrorBox($"Falha ao iniciar o Vulkan!\n\n{line}\n\nProvavelmente sua GPU não é compatível ou o driver está desatualizado. Escolha a CPU (ID -1) em Configurações para continuar.");
                 }
 
                 if (!hasShownError && err && line.Contains("vkAllocateMemory failed"))
                 {
                     hasShownError = true;
                     bool usingDain = (Interpolate.currentSettings.ai.NameInternal == Implementations.dainNcnn.NameInternal);
-                    string msg = usingDain ? "\n\nTry reducing the tile size in the AI settings." : "\n\nTry a lower resolution (Settings -> Max Video Size).";
-                    ShowErrorBox($"Vulkan ran out of memory!\n\n{line}{msg}");
+                    string msg = usingDain ? "\n\nTente reduzir o tamanho do bloco (tile) nas configurações da IA." : "\n\nTente uma resolução menor (Configurações > Tamanho máximo do vídeo).";
+                    ShowErrorBox($"A memória de vídeo (VRAM) acabou!\n\n{line}{msg}");
                 }
 
                 if (!hasShownError && err && line.Contains("invalid gpu device"))
                 {
                     hasShownError = true;
-                    ShowErrorBox($"A Vulkan error occured during interpolation!\n\n{line}\n\nAre your GPU IDs set correctly?");
+                    ShowErrorBox($"Ocorreu um erro do Vulkan durante a interpolação!\n\n{line}\n\nOs IDs de GPU estão corretos? (Configurações > Dispositivo NCNN)");
                 }
 
                 if (!hasShownError && err && line.Contains(" failed") && line.Contains("vk"))
                 {
                     hasShownError = true;
-                    ShowErrorBox($"A Vulkan error occured during interpolation!\n\n{GetLastLogLines(logName)}");
+                    ShowErrorBox($"Ocorreu um erro do Vulkan durante a interpolação!\n\n{GetLastLogLines(logName)}");
                 }
             }
 
@@ -691,32 +714,32 @@ namespace Flowframes.Os
                 if (!hasShownError && Interpolate.currentSettings.outSettings.Format != Enums.Output.Format.Realtime && (line.Contains("Task finished with error code") || line.Contains("fwrite() call failed")))
                 {
                     hasShownError = true;
-                    ShowErrorBox($"VapourSynth interpolation failed with an unknown error. Check the log for details:\n\n{GetLastLogLines(logName)}");
+                    ShowErrorBox($"A interpolação via VapourSynth falhou com um erro desconhecido. Veja o log:\n\n{GetLastLogLines(logName)}");
                 }
 
                 if (!hasShownError && lineLow.Contains("allocate memory failed"))
                 {
                     hasShownError = true;
-                    ShowErrorBox($"Out of memory!\nTry reducing your RAM usage by closing some programs.\n\n{line}");
+                    ShowErrorBox($"Memória RAM insuficiente!\nFeche alguns programas para liberar memória.\n\n{line}");
                 }
 
                 if (!hasShownError && line.Contains("vapoursynth.Error:"))
                 {
                     hasShownError = true;
-                    ShowErrorBox($"VapourSynth Error:\n\n{GetLastLogLines()}");
+                    ShowErrorBox($"Erro do VapourSynth:\n\n{GetLastLogLines()}");
                 }
             }
 
             if (!hasShownError && err && lineLow.Contains("out of memory"))
             {
                 hasShownError = true;
-                ShowErrorBox($"Your GPU ran out of VRAM! Please try a video with a lower resolution or use the Max Video Size option in the settings.\n\n{line}");
+                ShowErrorBox($"A memória de vídeo (VRAM) acabou! Use um vídeo de resolução menor, a opção Tamanho máximo do vídeo nas configurações, ou processe na CPU.\n\n{line}");
             }
 
             if (!hasShownError && lineLow.Contains("illegal memory access"))
             {
                 hasShownError = true;
-                ShowErrorBox($"Your GPU appears to be unstable! If you have an overclock enabled, please disable it!\n\n{line}");
+                ShowErrorBox($"Sua GPU parece instável! Se houver overclock ativado, desative-o!\n\n{line}");
             }
 
             if (hasShownError)

@@ -124,22 +124,14 @@ namespace Flowframes.Os
 
         public static void GpuCheck(bool exit = true)
         {
-            bool anyGpu = OsUtils.HasGpu();
-
-            if (!anyGpu)
+            // Sem GPU o programa continua funcionando: as versoes NCNN processam na CPU (bem mais lento).
+            if (!OsUtils.HasGpu())
             {
-                if (exit)
-                {
-                    Form1.CloseAllSplashForms();
-                }
-
-                UiUtils.ShowMessageBox("Nenhuma GPU detectada!\n\nO programa precisa de uma GPU (placa de vídeo ou integrada) com suporte a Vulkan para executar os modelos de interpolação.\n\nRecomendado:\n- Nvidia GeForce GTX série 1000 ou mais nova\n- AMD Radeon RX série 5000 ou mais nova", UiUtils.MessageType.Error);
-
-                if (exit)
-                {
-                    Application.Exit();
-                }
+                Logger.Log("Nenhuma GPU compatível foi detectada. O programa vai usar a CPU - funciona, mas é bem mais lento. " +
+                           "Se você tem uma placa de vídeo, atualize o driver (Nvidia/AMD/Intel).");
             }
+
+            Logger.Log(ProcessingDevice.Summary());
         }
     }
 }

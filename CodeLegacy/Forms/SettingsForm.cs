@@ -54,7 +54,7 @@ namespace Flowframes.Forms
             }
 
             ncnnGpus.Items.Add(-1);
-            tooltipNcnn += $"-1 = CPU\n";
+            tooltipNcnn += $"-1 = CPU (sem GPU; funciona, mas é bem mais lento)\n";
 
             foreach (var vkGpu in VulkanUtils.VkDevices)
             {
@@ -64,6 +64,53 @@ namespace Flowframes.Forms
 
             toolTip1.SetToolTip(tooltipTorchGpu, tooltipTorch.Trim());
             toolTip1.SetToolTip(tooltipNcnnGpu, tooltipNcnn.Trim());
+
+            label5.Text = "Dispositivo NCNN (ID da GPU, -1 = CPU)";
+            InitDeviceInfoLabels();
+        }
+
+        private Label ncnnDeviceInfo = null;
+        private Label torchDeviceInfo = null;
+
+        /// <summary> Mostra ao lado de cada seletor qual dispositivo (GPU ou CPU) sera realmente usado. </summary>
+        private void InitDeviceInfoLabels()
+        {
+            if (ncnnDeviceInfo != null)
+            {
+                UpdateDeviceInfo();
+                return;
+            }
+
+            Label Make(Panel panel)
+            {
+                var l = new Label { AutoSize = false, Location = new Point(560, 9), Size = new Size(Math.Max(120, panel.Width - 564), 16), ForeColor = Color.FromArgb(120, 220, 140), BackColor = Color.Transparent };
+                panel.Controls.Add(l);
+                return l;
+            }
+
+            ncnnDeviceInfo = Make(panNcnnGpus);
+            torchDeviceInfo = Make(panTorchGpus);
+
+            ncnnGpus.TextChanged += (s, e) => UpdateDeviceInfo();
+            ncnnGpus.SelectedIndexChanged += (s, e) => UpdateDeviceInfo();
+            torchGpus.TextChanged += (s, e) => UpdateDeviceInfo();
+            torchGpus.SelectedIndexChanged += (s, e) => UpdateDeviceInfo();
+            UpdateDeviceInfo();
+        }
+
+        private void UpdateDeviceInfo()
+        {
+            if (ncnnDeviceInfo == null || torchDeviceInfo == null)
+                return;
+
+            string ncnnTxt = ProcessingDevice.DescribeNcnnShort(ncnnGpus.Text.Replace(" ", ""));
+            string torchTxt = ProcessingDevice.DescribeTorchShort(torchGpus.Text.Replace(" ", ""));
+            ncnnDeviceInfo.Text = ncnnTxt;
+            torchDeviceInfo.Text = torchTxt;
+            toolTip1.SetToolTip(ncnnDeviceInfo, ncnnTxt);
+            toolTip1.SetToolTip(torchDeviceInfo, torchTxt);
+            ncnnDeviceInfo.ForeColor = ncnnTxt.Contains("CPU") || ncnnTxt.Contains("inválido") || ncnnTxt.Contains("não existe") ? Color.Orange : Color.FromArgb(120, 220, 140);
+            torchDeviceInfo.ForeColor = torchTxt.Contains("CPU") || torchTxt.Contains("inválido") ? Color.Orange : Color.FromArgb(120, 220, 140);
         }
 
         private void InitServers()

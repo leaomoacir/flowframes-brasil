@@ -333,7 +333,7 @@ namespace Flowframes.Forms.Main
                 model = GetModel(ai),
             };
 
-            s.InitArgs();
+            s.InitArgs(keepOutPath: path.IsEmpty());
             return s;
         }
 

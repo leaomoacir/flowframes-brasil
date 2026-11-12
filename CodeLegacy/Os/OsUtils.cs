@@ -99,6 +99,11 @@ namespace Flowframes.Os
             Process proc = new Process();
             proc = SetStartInfo(proc, hidden, filename);
             proc.StartInfo.Arguments = args.IsEmpty() ? proc.StartInfo.Arguments : $"/C {args}";
+
+            // Alguns PCs/politicas definem esta variavel, o que impede o cmd de achar programas na pasta atual
+            // (ex.: "rife-ncnn-vulkan.exe nao e reconhecido"). Removemos para os processos filhos.
+            try { proc.StartInfo.EnvironmentVariables.Remove("NoDefaultCurrentDirectoryInExePath"); } catch { }
+
             if (setFfEnv)
                 SetFfEnv(proc.StartInfo);
             return proc;

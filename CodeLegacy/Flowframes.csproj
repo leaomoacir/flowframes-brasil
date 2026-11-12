@@ -521,6 +521,7 @@
     <Compile Include="Os\NvApi.cs" />
     <Compile Include="Os\OsUtils.cs" />
     <Compile Include="Os\Python.cs" />
+    <Compile Include="Os\ProcessingDevice.cs" />
     <Compile Include="Os\StartupChecks.cs" />
     <Compile Include="Data\Branding.cs" />
     <Compile Include="Os\Updater.cs" />

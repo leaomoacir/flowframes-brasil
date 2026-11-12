@@ -86,7 +86,7 @@ namespace Flowframes
 
         public InterpSettings() { }
 
-        public void InitArgs()
+        public void InitArgs(bool keepOutPath = false)
         {
             outFps = inFps == null ? new Fraction() : inFps * (double)interpFactor;
             outFpsResampled = new Fraction(Config.Get(Config.Key.maxFps));
@@ -96,17 +96,19 @@ namespace Flowframes
             interpExt = "";
             _inputResolution = new Size(0, 0);
             noRedupe = dedupe && interpFactor == 1;
-            SetPaths(inPath);
+            SetPaths(inPath, keepOutPath);
             RefreshExtensions(ai: ai, settings: this);
         }
 
-        private void SetPaths(string inputPath)
+        private void SetPaths(string inputPath, bool keepOutPath = false)
         {
             if (!File.Exists(inputPath) && !Directory.Exists(inputPath))
                 return;
 
             inPath = inputPath;
-            outPath = (Config.GetInt("outFolderLoc") == 0) ? inputPath.GetParentDir() : Config.Get("custOutDir").Trim(); // This used to be commented out, idk why. Required for batch mode to set outPath.
+            // Execucao normal (tela/CLI): respeita a pasta de saida escolhida. Modo em lote: calcula a pasta de cada arquivo.
+            if (!keepOutPath || string.IsNullOrWhiteSpace(outPath))
+                outPath = (Config.GetInt("outFolderLoc") == 0) ? inputPath.GetParentDir() : Config.Get("custOutDir").Trim();
             tempFolder = InterpolateUtils.GetTempFolderLoc(inPath, outPath);
             framesFolder = Path.Combine(tempFolder, Paths.framesDir);
             interpFolder = Path.Combine(tempFolder, Paths.interpDir);

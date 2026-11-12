@@ -1,10 +1,19 @@
+Flow Frames Brasil 1.0.1
+
+Processamento em CPU e GPU
+- O programa agora abre e funciona em PCs sem GPU: as versões NCNN processam na CPU (mais lento).
+- Novo: o log mostra o hardware detectado e qual dispositivo (GPU ou CPU) será usado em cada execução.
+- Novo: nas Configurações, ao lado do seletor de dispositivo, aparece qual GPU/CPU será usada.
+- GPUs integradas (Intel UHD, AMD) que antes eram ignoradas agora são detectadas e podem ser usadas.
+- ID de GPU inexistente é corrigido automaticamente, com aviso.
+- Erros da IA agora mostram o dispositivo usado e a causa provável com o que fazer
+  (VRAM insuficiente, driver/Vulkan, modelo ausente, RAM, Python).
+
+Correções
+- Corrigido: a pasta de saída escolhida (tela ou opção -o do CLI) era ignorada e o vídeo ia para a pasta do arquivo de entrada.
+- Corrigido travamento ao informar um modelo inexistente na linha de comando.
+- Corrigido "rife-ncnn-vulkan.exe não é reconhecido" em PCs com NoDefaultCurrentDirectoryInExePath definido.
+- Mensagens de erro do PyTorch/Vulkan traduzidas.
+
 Flow Frames Brasil 1.0.0
-
-Primeira versão do Flow Frames Brasil, baseada no Flowframes 1.42.0 (N00MKRAD).
-
-Novidades
-- Interface e mensagens totalmente em português do Brasil.
-- Instalador para Windows (sem precisar de administrador).
-- Atualização automática: o programa avisa quando há versão nova e atualiza com um clique.
-- Correção: erro "Value must be a finite float" ao importar alguns vídeos (FPS não detectado).
-- Detecção de FPS mais robusta (vídeos com FPS "1k", duração desconhecida ou r_frame_rate 0/0).
+- Primeira versão: interface em português, instalador, atualização automática e correção do erro de FPS.

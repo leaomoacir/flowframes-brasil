@@ -168,7 +168,12 @@ namespace Flowframes.Ui
 
             AiInfo ai = Program.mainForm.GetAi();
 
-            if (ai.NameInternal == Implementations.rifeNcnn.NameInternal && !Program.mainForm.GetModel(ai).Dir.Contains("v4"))
+            var selectedModel = Program.mainForm.GetModel(ai);
+
+            if (selectedModel == null) // Nenhum modelo selecionado (ex.: nome invalido na linha de comando)
+                return factor;
+
+            if (ai.NameInternal == Implementations.rifeNcnn.NameInternal && !selectedModel.Dir.Contains("v4"))
             {
                 if (factor != 2)
                     Logger.Log($"Os modelos RIFE NCNN anteriores à versão 4.0 só suportam interpolação 2x!");

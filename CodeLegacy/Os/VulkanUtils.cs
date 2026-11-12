@@ -18,6 +18,7 @@ namespace Flowframes.Os
             public int Id { get; set; } = -1;
             public string Name { get; set; } = "";
             public int ComputeQueueCount { get; set; } = 0;
+            public string Type { get; set; } = "";
 
             public override string ToString()
             {
@@ -45,13 +46,16 @@ namespace Flowframes.Os
                     // Get queue families and find the one with Compute support but no Graphics support. This is the one that gives us the correct thread count to use for NCNN etc.
                     QueueFamilyProperties[] queueFamilies = device.GetQueueFamilyProperties();
                     var validQueueFamilies = queueFamilies.Where(q => q.QueueFlags.HasFlag(QueueFlags.Compute) && !q.QueueFlags.HasFlag(QueueFlags.Graphics));
-                    int compQueues = validQueueFamilies.Any() ? (int)validQueueFamilies.First().QueueCount : 0;
+                    var anyComputeFamilies = queueFamilies.Where(q => q.QueueFlags.HasFlag(QueueFlags.Compute)).ToList();
+                    // GPUs integradas (Intel/AMD) costumam nao ter fila de computacao dedicada: nesse caso usa qualquer fila com suporte a computacao
+                    int compQueues = validQueueFamilies.Any() ? (int)validQueueFamilies.First().QueueCount : (anyComputeFamilies.Any() ? (int)anyComputeFamilies.Max(q => q.QueueCount) : 0);
 
                     if(compQueues <= 0)
                         continue;
 
-                    string name = device.GetProperties().DeviceName;
-                    VkDevices.Add(new VkDevice { Id = idx, Name = name, ComputeQueueCount = compQueues });
+                    var props = device.GetProperties();
+                    string name = props.DeviceName;
+                    VkDevices.Add(new VkDevice { Id = idx, Name = name, ComputeQueueCount = compQueues, Type = props.DeviceType.ToString() });
                     Logger.Log($"[VK] Found Vulkan device: {VkDevices.Last()}", true);
                 }
 
@@ -75,7 +79,7 @@ namespace Flowframes.Os
 
             if (VkDevices.Count == 0)
             {
-                Logger.Log($"Nenhuma GPU compatível com Vulkan encontrada. As implementações NCNN usarão a CPU e podem ficar instáveis.");
+                Logger.Log("Nenhuma GPU compatível com Vulkan encontrada. As versões NCNN vão processar na CPU (funciona, mas é bem mais lento).");
                 Config.Set(Config.Key.ncnnGpus, "-1", allowIfExists: false); // -1 = CPU
                 return;
             }
